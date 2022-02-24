@@ -852,10 +852,9 @@ py_netsnmp_attr_string(PyObject *obj, char * attr_name, char **val,
   if (obj && attr_name && PyObject_HasAttrString(obj, attr_name)) {
     PyObject *attr = PyObject_GetAttrString(obj, attr_name);
     if (attr) {
-      int retval;
-      retval = PyString_AsStringAndSize(attr, val, len);
+      *val = PyUnicode_AsUTF8AndSize(attr, len);
       Py_DECREF(attr);
-      return retval;
+      return 0;
     }
   }
 
@@ -870,7 +869,7 @@ py_netsnmp_attr_long(PyObject *obj, char * attr_name)
   if (obj && attr_name  && PyObject_HasAttrString(obj, attr_name)) {
     PyObject *attr = PyObject_GetAttrString(obj, attr_name);
     if (attr) {
-      val = PyInt_AsLong(attr);
+      val = PyLong_AsLong(attr);
       Py_DECREF(attr);
     }
   }
@@ -955,13 +954,13 @@ __py_netsnmp_update_session_errors(PyObject *session, char *err_str,
 
     py_netsnmp_attr_set_string(session, "ErrorStr", err_str, STRLEN(err_str));
 
-    tmp_for_conversion = PyInt_FromLong(err_num);
+    tmp_for_conversion = PyLong_FromLong(err_num);
     if (!tmp_for_conversion)
         return; /* nothing better to do? */
     PyObject_SetAttrString(session, "ErrorNum", tmp_for_conversion);
     Py_DECREF(tmp_for_conversion);
 
-    tmp_for_conversion = PyInt_FromLong(err_ind);
+    tmp_for_conversion = PyLong_FromLong(err_ind);
     if (!tmp_for_conversion)
         return; /* nothing better to do? */
     PyObject_SetAttrString(session, "ErrorInd", tmp_for_conversion);
@@ -2490,13 +2489,23 @@ static PyMethodDef ClientMethods[] = {
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+#if PY_VERSION_HEX < 0x03000000
 PyMODINIT_FUNC
 initclient_intf(void)
 {
     (void) Py_InitModule("client_intf", ClientMethods);
 }
+#else
+static PyModuleDef module_def = {
+    .m_base = PyModuleDef_HEAD_INIT,
+    .m_name = "client_intf",
+    .m_size = -1,
+    .m_methods = ClientMethods,
+};
 
-
-
-
-
+PyMODINIT_FUNC
+PyInit_client_intf(void)
+{
+    return PyModule_Create(&module_def);
+}
+#endif
